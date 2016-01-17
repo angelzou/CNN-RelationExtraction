@@ -25,7 +25,8 @@ class WordVectorizer(TransformerMixin):
 
         if embeddings == "word2vec":
             print "loading word2vec model ..."
-            self.model = gensim.models.Word2Vec.load_word2vec_format(w2v_model_path, binary=True)
+            #self.model = gensim.models.Word2Vec.load_word2vec_format(w2v_model_path, binary=True)
+            self.model = gensim.models.Word2Vec.load(w2v_model_path)
             print "finished loading word2vec !!"
 
         self.ner = ner

@@ -38,7 +38,6 @@ class CNN(BaseEstimator, ClassifierMixin):
         return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                               strides=[1, 2, 2, 1], padding='SAME')
 
-
     def __init__(self, input_shape, classes, conv_shape, epochs=2500, batchsize=50, dropout=0.5):
         """
 
