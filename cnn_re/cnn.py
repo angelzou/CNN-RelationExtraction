@@ -38,38 +38,29 @@ class CNN(BaseEstimator, ClassifierMixin):
         return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                               strides=[1, 2, 2, 1], padding='SAME')
 
-    def __init__(self, input_shape, classes, conv_shape, epochs=2500, batchsize=50, dropout=0.5):
-        """
+    def __init__(self, input_shape, classes, epochs, batch_size):
+        self.net_work_origin(input_shape, classes, epochs, batch_size)
 
-        :param input_shape:
-        :param conv_shape:
-        :param epochs:
-        :param batchsize:
-        :param dropout:
-        :return:
-        """
-
+    def net_work_angel(self, input_shape, classes, epochs, batch_size, dropout=0.5):
         self.m, self.n, self.c = input_shape
-        self.conv_w, self.conv_l = conv_shape
         self.classes = classes
 
         self.epochs = epochs
-        self.batchsize = batchsize
+        self.batch_size = batch_size
         self.dropout = dropout
 
         # 4 dimensional   datasize x seqwidth x veclength x channels
         self.x = tf.placeholder("float",  [None, self.m, self.n, self.c])
-        self.y_ = tf.placeholder("float", [None, len(self.classes)])        # 2dimensional    datasize x class
+        # 2 dimensional    datasize x class
+        self.y_ = tf.placeholder("float", [None, len(self.classes)])
 
-        self.conv_width, self.conv_length = conv_shape
-
-        W_conv1 = CNN.weight_variable([self.conv_width, self.conv_length, 1, 32])
+        W_conv1 = CNN.weight_variable([5, 25, 1, 32])
         b_conv1 = CNN.bias_variable([32])
 
         h_conv1 = tf.nn.relu(CNN.conv2d(self.x, W_conv1) + b_conv1)
         h_pool1 = CNN.max_pool_2x2(h_conv1)
 
-        W_conv2 = CNN.weight_variable([3, 3, 32, 64])
+        W_conv2 = CNN.weight_variable([5, 5, 32, 64])
         b_conv2 = CNN.bias_variable([64])
 
         h_conv2 = tf.nn.relu(CNN.conv2d(h_pool1, W_conv2) + b_conv2)
@@ -86,6 +77,65 @@ class CNN(BaseEstimator, ClassifierMixin):
         b_fc1 = CNN.bias_variable([1024])
 
         h_pool2_flat = tf.reshape(h_pool2, [-1, h_pool2_flat_shape ])
+        h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+
+        self.keep_prob = tf.placeholder("float")
+        h_fc1_drop = tf.nn.dropout(h_fc1, self.keep_prob)
+
+        W_fc2 = CNN.weight_variable([1024, len(self.classes)])
+        b_fc2 = CNN.bias_variable([len(self.classes)])
+
+        self.y_conv = tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
+
+        cross_entropy = -tf.reduce_sum(self.y_ * tf.log(self.y_conv))
+
+        self.train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+
+        self.correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
+        self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, "float"))
+
+        self.sess = tf.InteractiveSession()
+
+    def net_work_origin(self, input_shape, classes, epochs, batch_size, dropout=0.5):
+        conv_shape = [5, 25]
+        self.m, self.n, self.c = input_shape
+        self.conv_w, self.conv_l = conv_shape
+        self.classes = classes
+
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.dropout = dropout
+
+        # 4 dimensional   datasize x seqwidth x veclength x channels
+        self.x = tf.placeholder("float",  [None, self.m, self.n, self.c])
+        self.y_ = tf.placeholder("float", [None, len(self.classes)])        # 2dimensional    datasize x class
+
+        self.conv_height, self.conv_width = conv_shape
+
+        W_conv1 = CNN.weight_variable([self.conv_height, self.conv_width, 1, 32])
+        b_conv1 = CNN.bias_variable([32])
+
+        h_conv1 = tf.nn.relu(CNN.conv2d(self.x, W_conv1) + b_conv1)
+        h_pool1 = CNN.max_pool_2x2(h_conv1)
+
+        W_conv2 = CNN.weight_variable([3, 3, 32, 64])
+        b_conv2 = CNN.bias_variable([64])
+
+        h_conv2 = tf.nn.relu(CNN.conv2d(h_pool1, W_conv2) + b_conv2)
+        h_pool2 = CNN.max_pool_2x2(h_conv2)
+
+        # calculating shape of h_pool2
+        # conv2d with our conf. keeps original size
+        # max pooling : reduces size into half
+        h_pool2_l = np.ceil(np.ceil(self.m/2.0)/2.0)
+        h_pool2_w = np.ceil(np.ceil(self.n/2.0)/2.0)
+
+        h_pool2_flat_shape = np.int32(h_pool2_l * h_pool2_w * 64)
+
+        W_fc1 = CNN.weight_variable([h_pool2_flat_shape, 1024])
+        b_fc1 = CNN.bias_variable([1024])
+
+        h_pool2_flat = tf.reshape(h_pool2, [-1, h_pool2_flat_shape])
         h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
         self.keep_prob = tf.placeholder("float")
@@ -131,7 +181,7 @@ class CNN(BaseEstimator, ClassifierMixin):
             temp[c][i] = 1
         y = temp
 
-        data = Batcher(X, y, self.batchsize)
+        data = Batcher(X, y, self.batch_size)
 
         for i in range(self.epochs):
 
@@ -160,24 +210,66 @@ class CNN(BaseEstimator, ClassifierMixin):
         y_pred = tf.argmax(y_prop, 1).eval()
         return y_pred
 
+    # not tested yet
+    def save(self, save_path):
+        saver = tf.train.Saver()
+        saver.save(self.sess, save_path=save_path)
 
+    # not tested yet
+    def restore(self, model_path):
+        saver = tf.train.Saver()
+        saver.restore(self.sess, model_path)
+
+    '''
+    x = tf.placeholder(tf.float32)
+    y = tf.placeholder(tf.float32)
+
+    w = tf.Variable(tf.zeros([1, 1], dtype=tf.float32))
+    b = tf.Variable(tf.ones([1, 1], dtype=tf.float32))
+    y_hat = tf.add(b, tf.matmul(x, w))
+
+    ...more setup for optimization and what not...
+
+    saver = tf.train.Saver()  # defaults to saving all variables - in this case w and b
+
+    with tf.Session() as sess:
+        sess.run(tf.initialize_all_variables())
+        if FLAGS.train:
+            for i in xrange(FLAGS.training_steps):
+                ...training loop...
+                if (i + 1) % FLAGS.checkpoint_steps == 0:
+                    saver.save(sess, FLAGS.checkpoint_dir + 'model.ckpt',
+                               global_step=i+1)
+        else:
+            # Here's where you're restoring the variables w and b.
+            # Note that the graph is exactly as it was when the variables were
+            # saved in a prior training run.
+            ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+            if ckpt and ckpt.model_checkpoint_path:
+                saver.restore(sess, ckpt.model_checkpoint_path)
+            else:
+                ...no checkpoint found...
+
+            # Now you can run the model to get predictions
+            batch_x = ...load some data...
+            predictions = sess.run(y_hat, feed_dict={x: batch_x})
+    '''
 
 class Batcher:
     """
     a helper class to create batches given a dataset
     """
-    def __init__(self, X, y, batchsize=50):
+    def __init__(self, X, y, batch_size=50):
         """
-
         :param X: array(any) : array of whole training inputs
         :param y: array(any) : array of correct training labels
-        :param batchsize: integer : default = 50,
+        :param batch_size: integer : default = 50,
         :return: self
         """
         self.X = X
         self.y = y
         self.iterator = 0
-        self.batchsize = batchsize
+        self.batch_size = batch_size
 
     def next_batch(self):
         """
@@ -185,7 +277,8 @@ class Batcher:
         :return: the next batch inform of a tuple (input, label)
         """
         start = self.iterator
-        end = self.iterator+self.batchsize
+        end = self.iterator+self.batch_size
         self.iterator = end if end < len(self.X) else 0
         return self.X[start:end], self.y[start:end]
+
 
