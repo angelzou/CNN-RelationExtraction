@@ -26,11 +26,16 @@ class RelationPreprocessor:
         y = []
         X = []
         for line in txt_lines:
+            if not line:
+                continue
             line_clean, e1, e2, label = extract_info(line)
             tokens, tokens_pos = self.tokenize(line_clean)
+            print line_clean
             id_e1, id_e2 = tokens.index(e1), tokens.index(e2)
             if len(tokens) > self.max_token_size:
                 tokens, tokens_pos = trim_token(tokens, tokens_pos, self.max_token_size, id_e1, id_e2)
+            if not tokens:
+                continue
 
             x = {"tokens": tokens, "token_pos": tokens_pos,
                  "ent1": e1, "ent2": e2,
@@ -63,6 +68,8 @@ class RelationPreprocessor:
 def trim_token(tokens, tokens_pos, max_token_size, id_e1, id_e2):
     trimed_tokens, trimed_ind = \
         trim_long_sentence(tokens, max_token_size, id_e1, id_e2)
+    if not trimed_tokens:
+        return [], []
 
     trimed_pos = [tokens_pos[ind] for ind in trimed_ind]
     tokens_pos = let_pos_from_zero(trimed_pos)
@@ -82,10 +89,10 @@ def extract_entity(sentence):
     entity_a_raw = re.compile(r"(?<=<e1>)(.*?)(?=</e1>)").findall(sentence)[0]
     entity_b_raw = re.compile(r"(?<=<e2>)(.*?)(?=</e2>)").findall(sentence)[0]
 
-    sentence = sentence.replace('<e1>', '')
-    sentence = sentence.replace('<e2>', '')
-    sentence = sentence.replace('</e1>', '')
-    sentence = sentence.replace('</e2>', '')
+    sentence = sentence.replace('<e1>', ' ')
+    sentence = sentence.replace('<e2>', ' ')
+    sentence = sentence.replace('</e1>', ' ')
+    sentence = sentence.replace('</e2>', ' ')
     entity_a = entity_a_raw.replace(' ', '_')
     entity_b = entity_b_raw.replace(' ', '_')
     sentence = sentence.replace(entity_a_raw, entity_a)
@@ -102,7 +109,7 @@ def extract_info(line):
 def trim_long_sentence(sentence, max_length, ent1_pos, ent2_pos):#, token_pos):
     if len(sentence) < max_length or \
                     abs(ent1_pos - ent2_pos) >= max_length:
-        return -1
+        return [], []
 
     diff = {}
     for i in range(len(sentence)-max_length+1):
