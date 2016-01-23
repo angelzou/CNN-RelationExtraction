@@ -1,50 +1,70 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
 __author__ = 'hadyelsahar'
 
 import re
 import numpy as np
 from nltk.tokenize import TreebankWordTokenizer
-
+import jieba
+import codecs
 
 class RelationPreprocessor:
 
-    def __init__(self, max_token_size):
+    def __init__(self, max_token_size, chinese_dict=''):
         self.out_label = "OUT"
         self.max_token_size = max_token_size
+        if chinese_dict:
+            self.chinese_dict = chinese_dict
+            jieba.load_userdict(chinese_dict)
 
     def load_data(self, file_path):
         print 'processing file: {}'.format(file_path)
-        file_text = file(file_path, 'r')
-        text = file_text.read()
+        # file_text = file(file_path, 'r')
+        with codecs.open(file_path, "r", "utf-8") as file_text:
+            text = file_text.readlines()
         rels, rel_labels = self.get_relations(text)
         file_text.close()
         lines_info = np.array(rels)
         labels = np.array(rel_labels)
         return lines_info, labels
+        
+    def get_relation_line(self, line):
+        if not line:
+            return [], []
+        line_clean, e1, e2, label = extract_info(line)
+        tokens, tokens_pos = self.tokenize(line_clean)
+        #print line_clean
+        # print e1, e2
+        if e1 not in tokens or e2 not in tokens:
+                # error_ss.append(line.encode("utf-8").replace("\n", ""))
+                # print line.strip()
+                # print "--------------------------------------"
+            return [], []
 
-    def get_relations(self, raw_txt):
-        txt_lines = raw_txt.split("\n")
-        y = []
+        id_e1, id_e2 = tokens.index(e1), tokens.index(e2)
+        if len(tokens) > self.max_token_size:
+            tokens, tokens_pos = trim_token(tokens, tokens_pos, self.max_token_size, id_e1, id_e2)
+        if not tokens:
+            return [], []
+
+        x = {"tokens": tokens, "token_pos": tokens_pos,
+                "ent1": e1, "ent2": e2,
+                "ent1_pos": tokens.index(e1), "ent2_pos": tokens.index(e2)}
+
+        return x, label
+
+    def get_relations(self, txt_lines):
+        Y = []
         X = []
         for line in txt_lines:
-            if not line:
+            x, y = self.get_relation_line(line)
+            if not x:
                 continue
-            line_clean, e1, e2, label = extract_info(line)
-            tokens, tokens_pos = self.tokenize(line_clean)
-            print line_clean
-            id_e1, id_e2 = tokens.index(e1), tokens.index(e2)
-            if len(tokens) > self.max_token_size:
-                tokens, tokens_pos = trim_token(tokens, tokens_pos, self.max_token_size, id_e1, id_e2)
-            if not tokens:
-                continue
-
-            x = {"tokens": tokens, "token_pos": tokens_pos,
-                 "ent1": e1, "ent2": e2,
-                 "ent1_pos": tokens.index(e1), "ent2_pos": tokens.index(e2)}
             X.append(x)
-            y.append(label)
-        return X, y
+            Y.append(y)
+        return X, Y
 
-    def tokenize(self, text, returnids=True):
+    def tokenize(self, text, returnids=True, is_chinese=True):
         """
         adaptation of Treebanktokenizer to allow start and end positions of each token of sentences
         :param s: seting sentence
@@ -53,8 +73,12 @@ class RelationPreprocessor:
                         eg.  sentence : "hello hi a" ["hello","hi","a"] [(0,5),(6,8),(9,10)]
         :return:
         """
+        tokens = TreebankWordTokenizer().tokenize(text)
+        if is_chinese:
+            words = jieba.cut(text.strip())
+            tokens = " ".join(words).split(" ")
+            tokens = [x for x in tokens if x != u""]
         if returnids:
-            tokens = TreebankWordTokenizer().tokenize(text)
             positions = []
             start = 0
             for token in tokens:

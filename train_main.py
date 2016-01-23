@@ -7,23 +7,33 @@ import numpy as np
 import time
 import datetime
 
-#n_channel = 1
-batch_size = 2
-epoch_num = 5
-word2vec_model_path = "./data/word2vec/wiki.en.text.model"
-source_file = './data/sentence.txt'
-exp_root = './_expdata'
-
-
-def init_exp_root():
-    if not os.path.exists(exp_root):
-        os.mkdir(exp_root)
-
 
 def timestamp():
     ts = time.time()
     stamp = datetime.datetime.fromtimestamp(ts).strftime('%Y%m%d%H%M%S')
     return stamp
+
+
+#n_channel = 1
+batch_size = 50
+test_interval = 20
+snapshot = 10000
+iterations = 50000
+word2vec_model_path = "./data/word2vec_cn/wiki.zh.text.model"
+source_file = './data/d-s-ann.0.5.txt'
+jieba_dict = './data/user-2.dict'
+
+stamp = timestamp()
+exp_root = './_expdata'
+save_path = os.path.join(exp_root, stamp)
+os.mkdir(save_path)
+log_dir = os.path.join(save_path, 'log')
+print 'exp data is put into %s' % save_path
+
+
+def init_exp_root():
+    if not os.path.exists(exp_root):
+        os.mkdir(exp_root)
 
 
 # TODO: preprocessor is not a good name, so as to name as X, y
@@ -33,7 +43,7 @@ def load_relation(source_file):
     # X: array(dict) [{sentence_id:, id:, segments:[], segment_labels:[], ent1:int, ent2:int}]
     # y: array(string) : labels of realations
     if not os.path.exists("./dataset.p"):
-        proc_util = preprocessor.RelationPreprocessor(max_token_size=20)
+        proc_util = preprocessor.RelationPreprocessor(max_token_size=20, chinese_dict=jieba_dict)
         infos, labels = proc_util.load_data(source_file)
         sentence_vectorizer = relation_vectorizer.RelationVectorizer(word2vec_model_path, max_tokens_length=20)
         X, y = sentence_vectorizer.transform(infos, labels)
@@ -58,27 +68,21 @@ def split_train_test(X, y, split_ratio=0.8):
 def create_cnn_model(input_shape, classes):
     cnn_model = cnn.CNN(input_shape=input_shape,
                         classes=np.unique(classes),
-                        epochs=epoch_num,
-                        batch_size=batch_size)
+                        iterations=iterations,
+                        batch_size=batch_size, 
+                        log_dir=log_dir)
 
     return cnn_model
 
 
-def train(cnn_model, x_train, y_train, is_save=False):
+def train(cnn_model, x_train, y_train):
     '''n_train_size = x_train.shape[0]
     n_word = x_train.shape[1]
     n_feature = x_train.shape[2]
     x_train = x_train[:, :, :320, 0]
     '''
     x_train = x_train[:, :, :, np.newaxis]
-    cnn_model.fit(x_train, y_train)
-
-    if is_save:
-        exp_dir = os.path.join(exp_root, timestamp())
-        os.mkdir(exp_dir)
-        model_fullpath = os.path.join(exp_dir, "cnn_model.p")
-        cnn_model.save(model_fullpath)
-        print 'model has been saved into {}'.format({model_fullpath})
+    cnn_model.fit(x_train, y_train, test_interval, save_path=save_path, snapshot=snapshot)
 
 
 def test(cnn_model, x_test, y_test):
@@ -94,11 +98,29 @@ def test(cnn_model, x_test, y_test):
     print y_pred
 
 
-if __name__ == '__main__':
+def train_main():
+    init_exp_root();
     X, y = load_relation(source_file)
     n_channel = 1
-    cnn_model = create_cnn_model(input_shape=[X.shape[1], X.shape[2], n_channel], classes=y)
     x_train, y_train, x_test, y_test = split_train_test(X, y, split_ratio=0.8)
+    x_train = x_train[:, :, :320]
+    cnn_model = create_cnn_model(input_shape=[x_train.shape[1], x_train.shape[2], n_channel], classes=y)
     train(cnn_model, x_train, y_train)
+
+
+def predict(x):
+    model_path = ''
+    cnn_model = create_cnn_model(input_shape=[x.shape[1], x.shape[2], n_channel], classes=y)
+    cnn_model.restore(model_path)
+    pred = cnn_model.predict(x_train)
+
+
+def predict_main():
+    predict(x)
+
+
+if __name__ == '__main__':
+    train_main()
+    #predict_main()
 
 

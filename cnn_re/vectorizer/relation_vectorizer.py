@@ -3,13 +3,7 @@ __author__ = 'hadyelsahar'
 import numpy as np
 from sklearn.base import TransformerMixin
 from word_vectorizer import WordVectorizer
-
-# inputs :
-# segments            : array of strings of max length m (padding smaller sizes sequences with zeros)
-# segments labels     : array of strings
-# ent1,ent2 : position of entity1 and entity2 in segments    0 <= ent1, ent2 < m
-# outputs :
-# vector representation of each segment : mxn martix  m = len(segments+padding), n = len(Wvec + position_vec + features)
+from tqdm import tqdm
 
 
 class RelationVectorizer(TransformerMixin):
@@ -31,25 +25,15 @@ class RelationVectorizer(TransformerMixin):
         # array index    = 0,.......,(l-1),...(2xl)-1
         self.word_position = np.random.rand((2 * max_tokens_length) - 1, self.word_position_size)
 
-    '''
-    def init_size(self, max_tokens_length):
-        """
-        :param X: array(dict) [{segments:[], segment_labels:[], ent1:int, ent2:int}]
-        :param y:
-        :param fit_params:
-        :return:
-        """
-        self.m = max_tokens_length
-        # original index = -l+1,....,0,...l-1
-        # array index    = 0,.......,(l-1),...(2xl)-1
-        self.word_position = np.random.rand((2 * max_tokens_length) - 1, self.word_position_size)
-        return self
-    '''
-
     def tokens_to_vec(self, tokens):
         sentence_vec = []
         for token in tokens:
-            sentence_vec.append(self.sentence_vectorizer.word2vec(token))
+            vec = self.sentence_vectorizer.word2vec(token)
+            if len(vec.shape) == 0:
+                print 'length vec == 0'
+                return []
+            sentence_vec.append(vec)
+
         sentence_vec = np.array(sentence_vec, dtype=np.float32)
         return sentence_vec
 
@@ -57,8 +41,14 @@ class RelationVectorizer(TransformerMixin):
         sentence_matrix_out = np.zeros([0, self.m, self.n], np.float32)
         valid_label = []
 
-        for sentence_elements, label in zip(sentence_matrix, labels):
+        count = 0
+        for sentence_elements, label in tqdm(zip(sentence_matrix, labels)):
+            count += 1
+            # print count 
             sentence_vec = self.tokens_to_vec(sentence_elements["tokens"])
+            if sentence_vec == []:
+                 print 'line %d sentence vector is null' % count
+                 continue
             entity1_vec = self.lookup_word_pos(sentence_elements["ent1_pos"], self.m)  # dimension m x _
             entity2_vec = self.lookup_word_pos(sentence_elements["ent2_pos"], self.m)  # dimension m x _
 
@@ -68,8 +58,6 @@ class RelationVectorizer(TransformerMixin):
                 sentence_vec = np.vstack([sentence_vec, temp])
 
             #  merging different parts of vector representation of words
-            print sentence_vec.shape, entity1_vec.shape, entity2_vec.shape
-            print sentence_matrix_out.shape
             sentence_matrix_vec = np.hstack([sentence_vec, entity1_vec, entity2_vec])
             sentence_matrix_out = np.append(sentence_matrix_out, [sentence_matrix_vec], axis=0)
             valid_label.append(label)
@@ -125,24 +113,3 @@ def test_trim_long_sentence():
 
 if __name__ == '__main__':
     test_trim_long_sentence()
-
-
-
-
-
-
-    '''
-    if abs(pos2 - pos1) > self.m:
-        continue
-    center_ind = abs(pos2 - pos1) / 2
-    right_bound = center_ind + self.m / 2
-    left_bound = center_ind - self.m / 2
-    if right_bound > self.m:
-        left_bound = left_bound - right_bound
-        right_bound = self.m
-
-    if left_bound < 0:
-        right_bound = right_bound + abs(left_bound)
-        left_bound = 0
-    sentence_vec = sentence_vec[left_bound: right_bound]
-    '''

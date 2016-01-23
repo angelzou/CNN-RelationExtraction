@@ -16,7 +16,8 @@ Convolution neural network for relation classification between two given entitie
 
 - Kim, Yoon. "Convolutional neural networks for sentence classification." arXiv preprint arXiv:1408.5882 (2014).
 - Zeng, D., Liu, K., Lai, S., Zhou, G. and Zhao, J., 2014, August. Relation classification via convolutional deep neural network. In Proceedings of COLING (pp. 2335-2344).
-Vancouver	
+Vancouver   
+
 
 
 
