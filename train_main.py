@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import cnn_re.cnn as cnn
 import cnn_re.vectorizer.relation_vectorizer as relation_vectorizer
 import cnn_re.vectorizer.preprocessor as preprocessor
@@ -6,6 +7,7 @@ import os
 import numpy as np
 import time
 import datetime
+import sklearn.metrics as skmetric
 
 
 def timestamp():
@@ -16,12 +18,13 @@ def timestamp():
 
 #n_channel = 1
 batch_size = 50
-test_interval = 20
+test_interval = 50
 snapshot = 10000
-iterations = 50000
+iterations = 5000
 word2vec_model_path = "./data/word2vec_cn/wiki.zh.text.model"
 source_file = './data/d-s-ann.0.5.txt'
 jieba_dict = './data/user-2.dict'
+nchannel = 1
 
 stamp = timestamp()
 exp_root = './_expdata'
@@ -65,37 +68,34 @@ def split_train_test(X, y, split_ratio=0.8):
     return x_train, y_train, x_test, y_test
 
 
-def create_cnn_model(input_shape, classes):
-    cnn_model = cnn.CNN(input_shape=input_shape,
-                        classes=np.unique(classes),
-                        iterations=iterations,
-                        batch_size=batch_size, 
-                        log_dir=log_dir)
+def init_cnn_model(input_shape, classes):
+    cnn_model = cnn.CNN()
+    cnn_model.net_work_diy(input_shape=input_shape,
+                           classes=np.unique(classes))
 
     return cnn_model
 
 
 def train(cnn_model, x_train, y_train):
-    '''n_train_size = x_train.shape[0]
-    n_word = x_train.shape[1]
-    n_feature = x_train.shape[2]
-    x_train = x_train[:, :, :320, 0]
-    '''
     x_train = x_train[:, :, :, np.newaxis]
-    cnn_model.fit(x_train, y_train, test_interval, save_path=save_path, snapshot=snapshot)
+    cnn_model.fit(x_train,
+                    y_train,
+                    test_interval=test_interval,
+                    save_path=save_path,
+                    snapshot=snapshot,
+                    iterations=iterations,
+                    batch_size=batch_size, 
+                    timestamp=stamp)
 
 
 def test(cnn_model, x_test, y_test):
-    '''n_test_size = y_test.shape[0]
-    n_word = y_test.shape[1]
-    n_feature = y_test.shape[2]
-    n_channel = 1
-    x_test = np.reshape(x_test, [n_test_size, n_word, n_feature, n_channel])
-    x_test = x_test[:, :20, :320, 0]
-    x_test = np.reshape(x_test, [-1, 20, 320, n_channel])
-    '''
     y_pred = cnn_model.predict(x_test)
     print y_pred
+
+
+def predict(model, x):
+    pred = model.predict(x)
+    return pred
 
 
 def train_main():
@@ -104,23 +104,47 @@ def train_main():
     n_channel = 1
     x_train, y_train, x_test, y_test = split_train_test(X, y, split_ratio=0.8)
     x_train = x_train[:, :, :320]
-    cnn_model = create_cnn_model(input_shape=[x_train.shape[1], x_train.shape[2], n_channel], classes=y)
+    cnn_model = init_cnn_model(input_shape=[x_train.shape[1], x_train.shape[2], n_channel], classes=y)
     train(cnn_model, x_train, y_train)
-
-
-def predict(x):
-    model_path = ''
-    cnn_model = create_cnn_model(input_shape=[x.shape[1], x.shape[2], n_channel], classes=y)
-    cnn_model.restore(model_path)
-    pred = cnn_model.predict(x_train)
+    pred = predict(cnn_model, x_test)
+    skmetric.accuracy_score(y_test, pred)
+    print skmetric.confusion_matrix(y_test, pred)
 
 
 def predict_main():
-    predict(x)
+    X, y = load_relation(source_file)
+    X = X[:, :, :320, np.newaxis]
+    cnn_model = init_cnn_model(input_shape=[X.shape[1], X.shape[2], nchannel], classes=y)
+    cnn_model.restore('./_expdata/20160123212258/iters-4999.model')
+    y_pred = predict(cnn_model, X)
+    y_pred += 1 
+    y = [ int(i) for i in y]
+    print  'accuracy: %f' % skmetric.accuracy_score(y, y_pred)
+    print 'confusion matrix'
+    print skmetric.confusion_matrix(y, y_pred)
+    print 'precision score :' % skmetric.precision_score(y, y_pred)
+    print 'recall score :' % skmetric.recall_score(y, y_pred) 
+    print 'f1 score :' % skmetric.f1_score(y, y_pred) 
+
+
+def predict_test():
+    sentence = u'1\t<e1>抑郁症</e1>症状<e2>情绪低落</e2>就是高兴不起来，总是忧愁伤感，甚至悲观绝望，《红楼梦》中整天皱眉叹气，动不动就流眼泪的林黛玉就是典型的例子。'
+    proc_util = preprocessor.RelationPreprocessor(max_token_size=20, chinese_dict=jieba_dict)
+    infos, labels = proc_util.get_relation_line(sentence)
+    sentence_vectorizer = relation_vectorizer.RelationVectorizer(word2vec_model_path, max_tokens_length=20)
+    X, y = sentence_vectorizer.transform([infos], [labels])   
+    X = X[:,:,:320, np.newaxis]
+    cnn_model = init_cnn_model(input_shape=[X.shape[1], X.shape[2], nchannel], classes=[1,2,3,4,5])
+    cnn_model.restore('./_expdata/20160123212258/iters-4999.model')
+    y_pred = predict(cnn_model, X) + 1
+    
+    print  u'sentence : {}. prediction relation label is {}'.format(sentence, y_pred)
 
 
 if __name__ == '__main__':
-    train_main()
+    #train_main()
+    #test()
     #predict_main()
+    predict_test()
 
 
