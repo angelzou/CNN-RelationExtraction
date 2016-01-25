@@ -4,13 +4,13 @@ __author__ = 'hadyelsahar'
 
 import numpy as np
 import gensim
-from sklearn.base import TransformerMixin
+#from sklearn.base import TransformerMixin
 from nltk.tokenize import TreebankWordTokenizer
 from nltk.util import ngrams
 from scipy.sparse import *
 
 
-class WordVectorizer(TransformerMixin):
+class WordVectorizer():
 
     def __init__(self, w2v_model_path, ner=True, pos=True, dependency=False, embeddings="word2vec", tokenizer=None):
         """

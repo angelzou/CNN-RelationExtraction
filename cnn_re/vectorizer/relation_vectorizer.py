@@ -1,12 +1,13 @@
-_author__ = 'hadyelsahar'
+__author__ = 'hadyelsahar'
+__author__ = 'olenet'
+
 
 import numpy as np
-from sklearn.base import TransformerMixin
 from word_vectorizer import WordVectorizer
 from tqdm import tqdm
 
 
-class RelationVectorizer(TransformerMixin):
+class RelationVectorizer():
 
     def __init__(self, word2vec_model_path, max_tokens_length=20, position_vector=True, word_position_size=10, ner=False, pos=False, dependency=False):
 
@@ -55,7 +56,6 @@ class RelationVectorizer(TransformerMixin):
         count = 0
         for sentence_elements, label in tqdm(zip(sentence_matrix, labels)):
             count += 1
-            # print count 
             sentence_vec = self.tokens_to_vec(sentence_elements["tokens"])
             if sentence_vec == []:
                  print 'line %d sentence vector is null' % count
