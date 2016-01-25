@@ -36,7 +36,6 @@ class RelationPreprocessor:
         #print line_clean
         # print e1, e2
         if e1 not in tokens or e2 not in tokens:
-                # error_ss.append(line.encode("utf-8").replace("\n", ""))
                 # print line.strip()
                 # print "--------------------------------------"
             return [], []
