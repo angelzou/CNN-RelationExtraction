@@ -10,7 +10,7 @@ import codecs
 
 class RelationPreprocessor:
 
-    def __init__(self, max_token_size, chinese_dict=''):
+    def __init__(self, max_token_size=20, chinese_dict=''):
         self.out_label = "OUT"
         self.max_token_size = max_token_size
         if chinese_dict:

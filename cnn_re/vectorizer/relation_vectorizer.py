@@ -1,4 +1,4 @@
-__author__ = 'hadyelsahar'
+_author__ = 'hadyelsahar'
 
 import numpy as np
 from sklearn.base import TransformerMixin
@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 class RelationVectorizer(TransformerMixin):
 
-    def __init__(self, word2vec_model_path, max_tokens_length, position_vector=True, word_position_size=10, ner=False, pos=False, dependency=False):
+    def __init__(self, word2vec_model_path, max_tokens_length=20, position_vector=True, word_position_size=10, ner=False, pos=False, dependency=False):
 
         self.position_vector = position_vector
 
@@ -25,12 +25,23 @@ class RelationVectorizer(TransformerMixin):
         # array index    = 0,.......,(l-1),...(2xl)-1
         self.word_position = np.random.rand((2 * max_tokens_length) - 1, self.word_position_size)
 
+    # write words which do not have mapping vector to file
+    def word2vec_test(self, tokens):
+	no_vec_words = []
+	for token in tokens:
+	    vec = self.sentence_vectorizer.word2vec(token)
+	    if len(vec.shape) == 0:
+		print token.encode('utf-8'), 'length vec == 0'
+		no_vec_words.append(token)
+	with open('../../../data/no_vec_words.txt', 'w') as f:
+	    f.writelines(' '.join(no_vec_words).encode('utf-8'))
+
     def tokens_to_vec(self, tokens):
         sentence_vec = []
         for token in tokens:
             vec = self.sentence_vectorizer.word2vec(token)
             if len(vec.shape) == 0:
-                print 'length vec == 0'
+                print token.encode('utf-8'), 'length vec == 0'
                 return []
             sentence_vec.append(vec)
 
@@ -111,5 +122,23 @@ def test_trim_long_sentence():
     print trim_long_sentence(sentence1, 3, 0, 3)
 
 
+def check_word_vector(word2vec_model_path, file_path):
+    import preprocessor
+    rp = preprocessor.RelationPreprocessor()
+    rv = RelationVectorizer(word2vec_model_path)
+    with open(file_path, "r") as f:
+	text = f.readlines()
+    for line in text:
+	if not line:
+	    contnue
+        #line_clean, e1, e2, label = preprocessor.extract_info(line)
+	tokens, tokens_pos = rp.tokenize(line)
+        rv.word2vec_test(tokens)	
+
+    
+
 if __name__ == '__main__':
-    test_trim_long_sentence()
+    # test_trim_long_sentence()
+    file_path = '/home/angelzou/CNN-RelationExtraction/data/d-s-ann.0.5.txt'
+    word2vec_model_path ='/home/angelzou/word2vec/wiki.medicine.zh.text.model'
+    check_word_vector(word2vec_model_path, file_path)

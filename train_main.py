@@ -19,9 +19,9 @@ batch_size = 50
 test_interval = 20
 snapshot = 10000
 iterations = 50000
-word2vec_model_path = "./data/word2vec_cn/wiki.zh.text.model"
-source_file = './data/d-s-ann.0.5.txt'
-jieba_dict = './data/user-2.dict'
+word2vec_model_path = "../word2vec/wiki.medicine.zh.text.model"
+source_file = './data/d-s-ann.0.5.20000.txt'
+jieba_dict = './data/user.dict'
 
 stamp = timestamp()
 exp_root = './_expdata'
