@@ -111,23 +111,24 @@ def train_main():
     print skmetric.confusion_matrix(y_test, pred)
 
 
-def predict_main():
+def predict_main(model_path):
     X, y = load_relation(source_file)
-    X = X[:, :, :320, np.newaxis]
-    cnn_model = init_cnn_model(input_shape=[X.shape[1], X.shape[2], nchannel], classes=y)
-    cnn_model.restore('./_expdata/20160123212258/iters-4999.model')
-    y_pred = predict(cnn_model, X)
+    x_train, y_train, x_test, y_test = split_train_test(X, y, split_ratio=0.8)
+    x_train = x_train[:, :, :320, np.newaxis]
+    cnn_model = init_cnn_model(input_shape=[x_train.shape[1], x_train.shape[2], nchannel], classes=y)
+    cnn_model.restore(model_path) # './_expdata/20160123212258/iters-4999.model'
+    y_pred = predict(cnn_model, x_test)
     y_pred += 1 
-    y = [ int(i) for i in y]
+    y = [ int(i) for i in y_test]
     print  'accuracy: %f' % skmetric.accuracy_score(y, y_pred)
     print 'confusion matrix'
     print skmetric.confusion_matrix(y, y_pred)
-    print 'precision score :' % skmetric.precision_score(y, y_pred)
-    print 'recall score :' % skmetric.recall_score(y, y_pred) 
-    print 'f1 score :' % skmetric.f1_score(y, y_pred) 
+    print 'precision score : %f' % skmetric.precision_score(y, y_pred)
+    print 'recall score : %f' % skmetric.recall_score(y, y_pred)
+    print 'f1 score : %f' % skmetric.f1_score(y, y_pred)
 
 
-def predict_test():
+def predict_test(model_path):
     sentence = u'1\t<e1>抑郁症</e1>症状<e2>情绪低落</e2>就是高兴不起来，总是忧愁伤感，甚至悲观绝望，《红楼梦》中整天皱眉叹气，动不动就流眼泪的林黛玉就是典型的例子。'
     proc_util = preprocessor.RelationPreprocessor(max_token_size=20, chinese_dict=jieba_dict)
     infos, labels = proc_util.get_relation_line(sentence)
@@ -135,16 +136,19 @@ def predict_test():
     X, y = sentence_vectorizer.transform([infos], [labels])   
     X = X[:,:,:320, np.newaxis]
     cnn_model = init_cnn_model(input_shape=[X.shape[1], X.shape[2], nchannel], classes=[1,2,3,4,5])
-    cnn_model.restore('./_expdata/20160123212258/iters-4999.model')
+    cnn_model.restore(model_path)
     y_pred = predict(cnn_model, X) + 1
     
     print  u'sentence : {}. prediction relation label is {}'.format(sentence, y_pred)
 
 
 if __name__ == '__main__':
-    #train_main()
-    #test()
-    #predict_main()
-    predict_test()
+    import sys
+    if sys.argv[1] == "train":
+        train_main()
+    if sys.argv[1] == "predict-main":
+        predict_main(sys.argv[2])
+    if sys.argv[1] == "predict-test":
+        predict_test(sys.argv[2])
 
 

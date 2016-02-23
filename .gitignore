@@ -3,3 +3,4 @@ data/
 *.p
 *.out
 _expdata/
+.idea/
